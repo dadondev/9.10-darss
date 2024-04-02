@@ -55,8 +55,6 @@ export default function Login() {
     signInWithPopup(auth, GoogleProvider)
       .then(() => {
         const cutId = auth.currentUser?.email?.slice(0, -10);
-        setOpen(true);
-        navigate("/");
         const dbRef = ref(getDatabase());
         get(child(dbRef, `users/${cutId}`)).then((snap) => {
           if (!snap.exists()) {
@@ -68,6 +66,10 @@ export default function Login() {
       })
       .catch(() => {
         setErr(true);
+      })
+      .finally(() => {
+        setOpen(true);
+        navigate("/");
       });
   };
   useEffect(() => {
