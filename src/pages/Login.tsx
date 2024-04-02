@@ -9,12 +9,14 @@ import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import { Telegram } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase/firebase";
-import { useState } from "react";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { GoogleProvider, auth, realDB } from "../firebase/firebase";
+import { useEffect, useState } from "react";
 import { Alert, Button, Snackbar } from "@mui/material";
+import { child, getDatabase, ref, get, set } from "firebase/database";
 
 export default function Login() {
+  const [net, setNet] = useState(false);
   const navigate = useNavigate();
   const [mail, setMail] = useState("");
   const [pass, setPass] = useState("");
@@ -23,13 +25,13 @@ export default function Login() {
   const [warn, setWarn] = useState(false);
   const [err, setErr] = useState(false);
   const [loading, setLoading] = useState(false);
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setLoading(true);
+  const handleSubmit = (_: React.FormEvent<HTMLFormElement>) => {
     if (checked) {
       if (mail && pass) {
         signInWithEmailAndPassword(auth, mail, pass)
           .then(() => {
+            setPass("");
+            setMail("");
             setOpen(true);
             navigate("/");
           })
@@ -49,13 +51,36 @@ export default function Login() {
     e(false);
   };
 
+  const handleWithGoogle = () => {
+    signInWithPopup(auth, GoogleProvider)
+      .then(() => {
+        const cutId = auth.currentUser?.email?.slice(0, -10);
+        setOpen(true);
+        navigate("/");
+        const dbRef = ref(getDatabase());
+        get(child(dbRef, `users/${cutId}`)).then((snap) => {
+          if (!snap.exists()) {
+            set(ref(realDB, "users/" + cutId), {
+              username: cutId,
+            });
+          }
+        });
+      })
+      .catch(() => {
+        setErr(true);
+      });
+  };
+  useEffect(() => {
+    setNet(!navigator.onLine);
+  }, [navigator.onLine]);
+
   return (
     <>
       <Grid container component="main" sx={{ height: "100%" }}>
         <Grid
           item
           xs={false}
-          sm={4}
+          sm={5}
           md={7}
           sx={{
             backgroundImage:
@@ -69,7 +94,7 @@ export default function Login() {
             backgroundPosition: "center",
           }}
         />
-        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+        <Grid item xs={12} sm={7} md={5} component={Paper} elevation={6} square>
           <Box
             sx={{
               my: 8,
@@ -88,7 +113,11 @@ export default function Login() {
             <Box
               component="form"
               noValidate
-              onSubmit={handleSubmit}
+              onSubmit={(e) => {
+                e.preventDefault();
+                setLoading(true);
+                handleSubmit(e);
+              }}
               sx={{ mt: 1 }}
             >
               <TextField
@@ -117,6 +146,8 @@ export default function Login() {
               />
               <FormControlLabel
                 value={"value"}
+                color={loading ? "#eee" : "primary"}
+                disabled={loading}
                 control={
                   <Checkbox
                     value="remember"
@@ -145,6 +176,18 @@ export default function Login() {
                   Sign in
                 </LoadingButton>
               </button>
+
+              <Typography sx={{ display: "block", textAlign: "center", my: 1 }}>
+                or
+              </Typography>
+
+              <Button
+                variant="outlined"
+                onClick={handleWithGoogle}
+                sx={{ width: "100%", display: "block", mb: 1 }}
+              >
+                Sign in with Google
+              </Button>
 
               <Grid container>
                 <Grid item xs>
@@ -201,6 +244,21 @@ export default function Login() {
           sx={{ width: "100%" }}
         >
           authenfication is not successfully
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        open={net}
+        autoHideDuration={6000}
+        onClose={() => handleClose(setNet)}
+      >
+        <Alert
+          onClose={() => handleClose(setNet)}
+          severity="warning"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          You must connect to internet
         </Alert>
       </Snackbar>
     </>
